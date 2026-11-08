@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SteamOpenIdConnectProvider.Domains.IdentityServer;
+using SteamOpenIdConnectProvider.Domains.Steam;
 
 namespace SteamOpenIdConnectProvider.Controllers;
 
@@ -53,6 +54,15 @@ public sealed class ExternalLoginController(
         if (info == null)
         {
             throw new Exception("Error loading external login information.");
+        }
+
+        // phattbeats fork: the claimed identifier must be exactly a steamcommunity.com SteamID64 URL.
+        // Checked before any sign-in or user creation, so a malformed assertion never becomes a subject.
+        var claimedId = info.Principal.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!SteamOpenIdGuards.TryGetSteamId(claimedId, out _))
+        {
+            logger.LogWarning("Rejected Steam login: claimed_id {ClaimedId} does not match the SteamID64 pattern.", claimedId);
+            return BadRequest("The Steam login response was rejected: invalid claimed_id.");
         }
 
         var externalLoginResult = await signInManager.ExternalLoginSignInAsync(

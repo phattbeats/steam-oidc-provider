@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -47,7 +47,13 @@ public sealed class SteamProfileService(
                 context.RequestedClaimTypes.Contains(claim.Type))
             .ToList();
 
-        var steamId = sub[SteamConstants.OpenIdUrl.Length..];
+        // phattbeats fork: derive the SteamID64 only from a strictly matching subject
+        if (!SteamOpenIdGuards.TryGetSteamId(sub, out var steamId))
+        {
+            logger.LogWarning("Subject {Sub} is not a valid Steam claimed identifier; issuing no Steam claims.", sub);
+            context.IssuedClaims = claims;
+            return;
+        }
         AddClaim(claims, SteamClaims.SteamId, steamId);
 
         GetPlayerSummariesResponse? userSummary = null;
@@ -91,7 +97,7 @@ public sealed class SteamProfileService(
         var appKey = _config.ApplicationKey;
         var steamIdList = string.Join(',', steamIds);
 
-        var url = $"{EndPoint}/?key={appKey}&steamids={steamIdList}";
+        var url = $"{EndPoint}/?key={Uri.EscapeDataString(appKey)}&steamids={Uri.EscapeDataString(steamIdList)}";
         var res = await httpClient.GetStringAsync(url);
         var response = JsonSerializer.Deserialize<SteamResponse<GetPlayerSummariesResponse>>(res)!;
 

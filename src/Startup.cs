@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
@@ -27,6 +27,7 @@ public sealed class Startup(IConfiguration configuration)
     public void ConfigureServices(IServiceCollection services)
     {
         services.AddControllers();
+        services.AddMemoryCache(options => options.SizeLimit = 100_000); // response_nonce replay guard
 
         services.AddDbContext<AppInMemoryDbContext>(options =>
             options.UseInMemoryDatabase("default"));
@@ -40,6 +41,7 @@ public sealed class Startup(IConfiguration configuration)
             .AddEntityFrameworkStores<AppInMemoryDbContext>()
             .AddDefaultTokenProviders();
 
+        var hosting = configuration.GetSection(HostingConfig.Config).Get<HostingConfig>() ?? new HostingConfig();
         var openIdConfig = configuration.GetSection(OpenIdConfig.ConfigKey);
         var openIdSettings = openIdConfig.Get<OpenIdConfig>()!;
         services
@@ -53,7 +55,8 @@ public sealed class Startup(IConfiguration configuration)
             .AddProfileService<SteamProfileService>()
             .AddInMemoryClients(IdentityServerConfigFactory.GetClients(openIdSettings))
             .AddInMemoryPersistedGrants()
-            .AddDeveloperSigningCredential()
+            // phattbeats fork: persist the signing key on a volume so a container recreate keeps the JWKS stable
+            .AddDeveloperSigningCredential(persistKey: true, filename: string.IsNullOrWhiteSpace(hosting.SigningKeyPath) ? null : hosting.SigningKeyPath)
             .AddInMemoryIdentityResources(IdentityServerConfigFactory.GetIdentityResources());
 
         var steamConfig = configuration.GetSection(SteamConfig.ConfigKey);
@@ -143,6 +146,9 @@ public sealed class Startup(IConfiguration configuration)
             OnDeleteCookie = cookieContext =>
                 SetSameSiteCookieOption(cookieContext.Context, cookieContext.CookieOptions)
         });
+
+        // phattbeats fork: one-shot openid.response_nonce guard on the Steam callback, before the handler
+        app.UseMiddleware<ResponseNonceReplayGuard>();
 
         app.UseAuthentication();
 

@@ -77,3 +77,12 @@ docker run -it \
 ## License
 
 [MIT](https://github.com/byo-software/steam-openid-connect-provider/blob/master/LICENSE)
+
+## phattbeats fork: hardening
+
+This fork carries four small changes on top of upstream, kept as one commit so they can be rebased or upstreamed:
+
+1. **Strict `claimed_id`**: the OpenID claimed identifier must match `^https://steamcommunity\.com/openid/id/(7656119\d{10})$`. Anything else is rejected before sign-in and never becomes a subject or a `steam_id` claim.
+2. **`openid.response_nonce` replay guard**: each nonce on `/signin-steam` is accepted once (in-memory, kept for twice the login window) and its timestamp must be inside `Steam:LoginTimeoutMinutes` (+1 min skew).
+3. **PKCE required (S256)** on the single client.
+4. **Persisted signing key**: `Hosting:SigningKeyPath` (e.g. `/keys/tempkey.jwk` on a volume) so a container recreate keeps the same JWKS.

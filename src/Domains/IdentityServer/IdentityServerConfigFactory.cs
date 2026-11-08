@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using IdentityServer4;
 using IdentityServer4.Models;
@@ -28,7 +28,9 @@ public static class IdentityServerConfigFactory
             // where to redirect to after logout
             PostLogoutRedirectUris = config.PostLogoutRedirectUris.ToArray(),
 
-            RequirePkce = false,
+            // phattbeats fork: PKCE (S256) is mandatory for the single confidential client (Authentik sends it)
+            RequirePkce = true,
+            AllowPlainTextPkce = false,
             AllowedScopes = new List<string>
             {
                 IdentityServerConstants.StandardScopes.OpenId,
