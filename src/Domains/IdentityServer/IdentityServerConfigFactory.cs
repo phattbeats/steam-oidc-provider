@@ -35,6 +35,9 @@ public static class IdentityServerConfigFactory
             {
                 IdentityServerConstants.StandardScopes.OpenId,
                 IdentityServerConstants.StandardScopes.Profile,
+                // phattbeats fork: Authentik's OIDC source always asks for "openid email profile";
+                // IdentityServer rejects unknown scopes, so allow email (Steam yields no email claim).
+                IdentityServerConstants.StandardScopes.Email,
             }
         };
         yield return client;
@@ -45,7 +48,8 @@ public static class IdentityServerConfigFactory
         return new List<IdentityResource>
         {
             new IdentityResources.OpenId(),
-            new IdentityResources.Profile()
+            new IdentityResources.Profile(),
+            new IdentityResources.Email()
         };
     }
 }
